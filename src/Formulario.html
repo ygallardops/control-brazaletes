@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<style>
+  body { font: 14px Arial, sans-serif; margin: 0; padding: 14px; color: #222; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+  .tabs button { flex: 1; padding: 10px; font-weight: bold; border: 2px solid #0b5394; background: #fff;
+    color: #0b5394; border-radius: 6px; cursor: pointer; }
+  .tabs button.on { background: #0b5394; color: #fff; }
+  #stock { padding: 8px; border-radius: 6px; background: #e8f0fe; }
+  #stock.bajo { background: #f4cccc; color: #990000; font-weight: bold; }
+  label { display: block; margin-top: 8px; font-weight: bold; font-size: 13px; }
+  input, select { width: 100%; box-sizing: border-box; padding: 7px; font-size: 14px; margin-top: 3px; font-weight: normal; }
+  .fila { display: flex; gap: 8px; } .fila > label { flex: 1; }
+  #guardar { margin-top: 14px; width: 100%; padding: 11px; font-size: 15px; font-weight: bold; background: #0b5394;
+    color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+  #guardar:disabled { opacity: .6; }
+  #error { color: #990000; margin-top: 8px; }
+  #ok { padding: 12px; background: #d9ead3; border-radius: 6px; line-height: 1.5; }
+  #ok button { margin: 10px 6px 0 0; padding: 8px 12px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div id="form">
+  <div class="tabs">
+    <button type="button" id="tSALIDA" class="on" onclick="modo('SALIDA')">Salida (entrega)</button>
+    <button type="button" id="tINGRESO" onclick="modo('INGRESO')">Ingreso (Farmacia)</button>
+  </div>
+  <div id="stock">Cargando stock...</div>
+  <label>Fecha <input type="date" id="fecha"></label>
+  <div id="SALIDA">
+    <label>Rollos (100 brazaletes c/u) <input type="number" id="s_rollos" min="1" step="1" value="1"></label>
+    <label>Destino <select id="s_destino"></select></label>
+    <label>Persona que recibe <input id="s_recibe" list="personas" autocomplete="off"></label>
+    <label>Entregado por <input id="s_entrega" list="personas" autocomplete="off"></label>
+  </div>
+  <div id="INGRESO" hidden>
+    <div class="fila">
+      <label>Cajas (5 rollos c/u) <input type="number" id="i_cajas" min="0" step="1" value="0"></label>
+      <label>Rollos sueltos <input type="number" id="i_rollos" min="0" step="1" value="0"></label>
+    </div>
+    <label>Solicitado por <select id="i_solicita"></select></label>
+    <label>Recogido por <input id="i_recoge" list="personas" autocomplete="off"></label>
+    <label>Referencia del pedido (opcional) <input id="i_ref" autocomplete="off"></label>
+  </div>
+  <button id="guardar" onclick="guardar()">Registrar salida</button>
+  <div id="error"></div>
+</div>
+<div id="ok" hidden>
+  <div id="okMsg"></div>
+  <button onclick="otro()">Registrar otro</button>
+  <button onclick="google.script.host.close()">Cerrar</button>
+</div>
+<datalist id="personas"></datalist>
+
+<script>
+  const $ = id => document.getElementById(id);
+  let tipo = 'SALIDA', info = { rollosCaja: 5, brazRollo: 100, minimo: 0 };
+
+  function hoy() {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 10);
+  }
+
+  const plural = (x, s, p) => `${x} ${x === 1 ? s : p}`;
+  function stockTexto(r) {
+    return `${plural(r, 'rollo', 'rollos')} (${plural(Math.floor(r / info.rollosCaja), 'caja', 'cajas')} + ` +
+      `${plural(r % info.rollosCaja, 'rollo', 'rollos')}, ${r * info.brazRollo} brazaletes)`;
+  }
+
+  function modo(t) {
+    tipo = t;
+    ['SALIDA', 'INGRESO'].forEach(x => { $('t' + x).classList.toggle('on', x === t); $(x).hidden = x !== t; });
+    $('guardar').textContent = t === 'SALIDA' ? 'Registrar salida' : 'Registrar ingreso';
+    $('error').textContent = '';
+  }
+
+  function cargar() {
+    google.script.run.withSuccessHandler(d => {
+      info = d;
+      const opciones = arr => arr.map(v => Object.assign(document.createElement('option'), { value: v, textContent: v }));
+      $('personas').replaceChildren(...opciones(d.personas));
+      if (!$('s_destino').options.length) $('s_destino').replaceChildren(...opciones(d.destinos));
+      if (!$('i_solicita').options.length) $('i_solicita').replaceChildren(...opciones(d.solicitantes));
+      ['s_entrega', 'i_recoge'].forEach(id => { if (!$(id).value) $(id).value = d.custodio; });
+      const bajo = d.stock <= d.minimo;
+      $('stock').textContent = 'Stock: ' + stockTexto(d.stock) + (bajo ? ' - STOCK BAJO' : '');
+      $('stock').classList.toggle('bajo', bajo);
+    }).withFailureHandler(e => $('error').textContent = e.message).datosFormulario();
+  }
+
+  function guardar() {
+    const f = tipo === 'SALIDA'
+      ? { tipo, fecha: $('fecha').value, rollos: $('s_rollos').value, destino: $('s_destino').value,
+          recibe: $('s_recibe').value, entrega: $('s_entrega').value }
+      : { tipo, fecha: $('fecha').value, cajas: $('i_cajas').value, rollos: $('i_rollos').value,
+          solicita: $('i_solicita').value, recoge: $('i_recoge').value, ref: $('i_ref').value };
+    $('guardar').disabled = true;
+    $('error').textContent = '';
+    google.script.run.withSuccessHandler(r => {
+      $('guardar').disabled = false;
+      const lineas = [
+        `${r.tipo === 'SALIDA' ? 'Salida registrada' : 'Ingreso registrado'}: ${r.cantidad} (N° interno ${r.num}).`,
+        `Stock ${r.tipo === 'SALIDA' ? 'restante' : 'actual'}: ${stockTexto(r.stock)}.`,
+      ];
+      if (r.stock <= info.minimo) lineas.push('STOCK BAJO: corresponde solicitar brazaletes a Farmacia.');
+      $('okMsg').innerText = lineas.join('\n');
+      $('form').hidden = true;
+      $('ok').hidden = false;
+    }).withFailureHandler(e => {
+      $('guardar').disabled = false;
+      $('error').textContent = e.message;
+    }).registrar(f);
+  }
+
+  function otro() {
+    $('s_rollos').value = 1;
+    $('i_cajas').value = $('i_rollos').value = 0;
+    ['s_recibe', 'i_ref'].forEach(id => $(id).value = '');
+    $('ok').hidden = true;
+    $('form').hidden = false;
+    cargar();
+  }
+
+  $('fecha').value = hoy();
+  cargar();
+</script>
+</body>
+</html>
