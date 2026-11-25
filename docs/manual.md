@@ -6,6 +6,7 @@ Este manual es para las personas que registran los ingresos y las entregas de br
 
 - Abre la hoja de control con tu cuenta de Google. Usa el menú **Brazaletes** de la barra superior; si no aparece, recarga la página.
 - La primera vez, Google pide autorizar el script. Acepta con tu propia cuenta.
+- Si usas varias cuentas de Google, abre la hoja en un perfil de navegador que tenga solo tu cuenta institucional. Si no, el formulario puede quedarse en "Cargando stock…" con un error PERMISSION_DENIED.
 - Todo se cuenta en **rollos**. 1 caja = 5 rollos. 1 rollo = 100 brazaletes.
 
 ## Registrar una entrega (salida)
