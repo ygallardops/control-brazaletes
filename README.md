@@ -21,6 +21,7 @@ Registra cada ingreso desde Farmacia y cada entrega a los destinos, mantiene el 
 - [Uso](#uso)
 - [Estructura](#estructura)
 - [Pruebas](#pruebas)
+- [Versiones](#versiones)
 - [Datos](#datos)
 - [Licencia](#licencia)
 
@@ -74,6 +75,7 @@ El script redibuja el Resumen tras cada registro o edición. Las celdas amarilla
    | `OFICINA` | Oficina responsable de los brazaletes |
    | `MANUAL_URL` | Enlace a un manual de uso compartido (opcional) |
    | `ALERTA_CORREO` | Correo que recibe la alerta de stock bajo (opcional; vacío = sin correo) |
+   | `CARPETA_REPORTES_ID` | Carpeta de Drive para los reportes PDF, compartida como Editor con quienes exportan (opcional; vacío = cada persona usa una carpeta propia) |
    | `DESTINOS`, `SOLICITANTES` | Listas fijas del formulario |
 
 4. Recargar la hoja y ejecutar <kbd>Brazaletes</kbd> → <kbd>Configuración inicial</kbd>: pide el stock inicial en rollos y crea las hojas.
@@ -144,6 +146,18 @@ node --test
 ```
 
 GitHub Actions las ejecuta en cada push y pull request.
+
+## Versiones
+
+Se usa [versionado semántico](https://semver.org/lang/es/): `MAYOR.MENOR.PARCHE`. La versión instalada se ve en la tercera fila del Resumen.
+
+| Cambio | Ejemplo | Sube |
+| --- | --- | --- |
+| Obliga a cambiar las hojas o los datos ya registrados | Una columna nueva en Movimientos | MAYOR |
+| Función nueva o cambio visible que no toca los datos | Rediseño del formulario | MENOR |
+| Corrección sin funciones nuevas | Una fecha que no se calculaba bien | PARCHE |
+
+Los cambios de cada versión están en [Releases](../../releases).
 
 ## Datos
 

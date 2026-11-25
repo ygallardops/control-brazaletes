@@ -1,5 +1,7 @@
 /** Control de Brazaletes de Identificación — Google Sheets + Apps Script */
 
+const VERSION = '1.1.0'; // versionado semántico: ver la sección Versiones del README
+
 const ROLLOS_POR_CAJA = 5;
 const BRAZ_POR_ROLLO = 100;
 const DESTINOS = ['Admisión de Hospitalización', 'Admisión de Emergencias', 'Módulos'];
@@ -9,6 +11,9 @@ const INSTITUCION = 'Nombre de la institución';
 const OFICINA = 'Nombre de la oficina';
 const MANUAL_URL = '';    // enlace al manual de uso (por ejemplo, un Google Doc compartido)
 const ALERTA_CORREO = ''; // a quién avisar cuando el stock llega al mínimo; vacío = no se envía correo
+// Carpeta de Drive para los reportes PDF, compartida como Editor con quienes exportan.
+// Vacío = cada persona guarda sus reportes en una carpeta propia de su Drive.
+const CARPETA_REPORTES_ID = '';
 
 const ENCABEZADOS = ['N°', 'Fecha', 'Tipo', 'Cajas', 'Rollos', 'Total rollos', 'Destino', 'Recibe',
   'Entregado por', 'Solicitado por', 'Recogido por', 'Referencia del pedido', 'Estado', 'Motivo de anulación',
@@ -360,13 +365,23 @@ function exportarReportePdf() {
     { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
   if (resp.getResponseCode() !== 200) throw new Error(`No se pudo generar el PDF (código ${resp.getResponseCode()}).`);
   const f = d => Utilities.formatDate(d, ss.getSpreadsheetTimeZone(), 'dd-MM-yyyy');
-  const archivo = carpeta_('carpetaReportes', 'Reportes - Brazaletes')
+  const archivo = carpetaReportes_()
     .createFile(resp.getBlob().setName(`Reporte brazaletes ${f(desde)} al ${f(hasta)}.pdf`));
   dialogoEnlace_('Reporte PDF', 'Abrir el reporte PDF', archivo.getUrl());
 }
 
+function carpetaReportes_() {
+  if (!CARPETA_REPORTES_ID) return carpeta_('carpetaReportes', 'Reportes - Brazaletes');
+  try {
+    return DriveApp.getFolderById(CARPETA_REPORTES_ID);
+  } catch (e) {
+    throw new Error('No tienes acceso a la carpeta de reportes. Pide a quien administra la hoja que te la comparta como Editor.');
+  }
+}
+
+// Carpeta propia de cada usuario en su Drive (por eso en sus propiedades: una carpeta de otra persona no le sirve)
 function carpeta_(clave, nombre) {
-  const props = PropertiesService.getDocumentProperties();
+  const props = PropertiesService.getUserProperties();
   const id = props.getProperty(clave);
   if (id) {
     try {
@@ -456,7 +471,8 @@ function renderResumen() {
   sh.getRange('A2:F2').merge().setValue(`${INSTITUCION} · ${OFICINA}`).setFontColor(COLOR.gris).setWrap(true);
   sh.setRowHeight(2, 30);
   const tz = ss.getSpreadsheetTimeZone();
-  sh.getRange('A3:F3').merge().setValue('Actualizado: ' + Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm'))
+  sh.getRange('A3:F3').merge()
+    .setValue(`Versión ${VERSION} · Actualizado: ${Utilities.formatDate(new Date(), tz, 'dd/MM/yyyy HH:mm')}`)
     .setFontColor(COLOR.gris).setFontSize(8).setFontStyle('italic').setHorizontalAlignment('right');
   sh.setRowHeight(4, 8);
 
