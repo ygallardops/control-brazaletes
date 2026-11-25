@@ -158,6 +158,7 @@ function opcionesAnulacion(filas, n) {
 // Celdas editables (amarillas) del Resumen: se conservan cada vez que se redibuja
 const R = { MIN: 'E6', DESDE: 'B10', HASTA: 'D10' };
 const MINIMO_POR_DEFECTO = 2;
+const FORMATO_ROLLOS = '[=1]0 "rollo";0 "rollos"';
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Brazaletes')
@@ -438,7 +439,7 @@ function renderResumen() {
     return v instanceof Date && v.getFullYear() >= 2000 ? (r.getFormula() || v) : porDefecto;
   };
   const min = minimo_();
-  const desde = fecha(R.DESDE, '=EOMONTH(TODAY(),-1)+1'), hasta = fecha(R.HASTA, '=TODAY()');
+  const desde = fecha(R.DESDE, '=TODAY()-DAY(TODAY())+1'), hasta = fecha(R.HASTA, '=TODAY()');
 
   sh.clear();
   sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).clearNote().breakApart();
@@ -472,9 +473,9 @@ function renderResumen() {
     prom === null ? 'aún no hay meses cerrados' : `promedio ${Math.round(prom * 10) / 10} rollos/mes`,
     COLOR.tarjeta, COLOR.primario);
   tarjeta_(sh, 5, 'ALERTA DE STOCK', min, 'avisa si quedan ≤ (editable)', COLOR.editable, '#202124');
-  sh.getRange('A6').setNumberFormat('0 "rollos"');
+  sh.getRange('A6').setNumberFormat(FORMATO_ROLLOS);
   sh.getRange('C6').setNumberFormat('0.0 "meses"');
-  sh.getRange(R.MIN).setNumberFormat('0 "rollos"');
+  sh.getRange(R.MIN).setNumberFormat(FORMATO_ROLLOS);
   sh.setRowHeight(6, 36);
   sh.setRowHeight(8, 10);
 
@@ -484,8 +485,9 @@ function renderResumen() {
     ['Desde', '', 'Hasta', '', 'Ingresos', ''],
     ['Cambia las fechas amarillas para ver otro período.', '', '', '', 'Salidas', ''],
   ]);
-  sh.getRange(R.DESDE).setValue(desde);
-  sh.getRange(R.HASTA).setValue(hasta);
+  // Fórmulas sin separadores de argumentos: en una hoja en español la coma no se acepta
+  [[R.DESDE, desde], [R.HASTA, hasta]].forEach(([a, v]) =>
+    typeof v === 'string' && v.startsWith('=') ? sh.getRange(a).setFormula(v) : sh.getRange(a).setValue(v));
   sh.getRange('A10').setHorizontalAlignment('right').setFontColor(COLOR.gris);
   sh.getRange('C10').setHorizontalAlignment('right').setFontColor(COLOR.gris);
   sh.getRange('E10:E11').setHorizontalAlignment('right').setFontColor(COLOR.gris);
@@ -499,7 +501,7 @@ function renderResumen() {
   const persona = okPeriodo ? agrupar(filas, 'SALIDA', C.RECIBE, d, h) : [];
   const ingresos = okPeriodo ? sumar_(filas, 'INGRESO', d, new Date(h.getFullYear(), h.getMonth(), h.getDate() + 1)) : 0;
   const suma = l => l.reduce((s, [, n]) => s + n, 0);
-  sh.getRange('F10:F11').setValues([[ingresos], [suma(destino)]]).setNumberFormat('0 "rollos"')
+  sh.getRange('F10:F11').setValues([[ingresos], [suma(destino)]]).setNumberFormat(FORMATO_ROLLOS)
     .setFontWeight('bold');
 
   // Tablas, una debajo de otra
